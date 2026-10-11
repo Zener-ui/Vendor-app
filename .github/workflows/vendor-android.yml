@@ -52,6 +52,11 @@ jobs:
         working-directory: vendor
         run: npm install
 
+      # Capacitor must be able to load capacitor.config.ts before `cap add android`.
+      - name: Install TypeScript for Capacitor config
+        working-directory: vendor
+        run: npm install --save-dev typescript
+
       - name: Build Fidelx vendor web app
         working-directory: vendor
         env:
