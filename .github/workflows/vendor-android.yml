@@ -3,125 +3,115 @@ name: Build Fidelx Vendor Android APK
 on:
   workflow_dispatch:
   push:
-    branches: [main]
-    paths:
-      - '**'
-      - '.github/workflows/Vendor-android.yml'
-
-permissions:
-  contents: read
+    branches:
+      - main
 
 jobs:
-  vendor-android:
+  android:
     runs-on: ubuntu-latest
-    timeout-minutes: 35
+    timeout-minutes: 40
 
     steps:
-      - name: Checkout vendor repository
+      - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Verify vendor project files
-        run: |
-          test -f vendor/package.json || { echo 'ERROR: vendor/package.json was not found.'; exit 1; }
-          test -f vendor/capacitor.config.ts || test -f vendor/capacitor.config.json || { echo 'ERROR: Capacitor config was not found in vendor/.'; exit 1; }
-          node -e "const p=require('./vendor/package.json'); if(!p.scripts || !p.scripts.build) { console.error('Missing npm build script in vendor/package.json'); process.exit(1) }"
-
-      - name: Set up Node.js
+      - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
           node-version: 22
-          cache: npm
-          cache-dependency-path: vendor/package-lock.json
 
-      - name: Set up Java
-        uses: actions/setup-java@v4
+      - name: Setup Java
+        uses: actions/setup-java@v5
         with:
           distribution: temurin
-          java-version: '21'
+          java-version: "21"
 
-      - name: Set up Android SDK
-        uses: android-actions/setup-android@v3
+      # Deliberately matches the working customer workflow's SDK setup.
+      - name: Setup Android SDK
+        uses: android-actions/setup-android@v4
+        with:
+          accept-android-sdk-licenses: true
+          log-accepted-android-sdk-licenses: false
+          packages: ""
 
-      - name: Install dependencies
+      - name: Verify vendor Firebase registration
         working-directory: vendor
-        run: npm ci
+        run: |
+          node --input-type=module <<'NODE'
+          import fs from 'node:fs';
+          const config = JSON.parse(fs.readFileSync('google-services.json', 'utf8'));
+          const found = (config.client || []).some(c => c.client_info?.android_client_info?.package_name === 'com.fidelx.vendor');
+          if (!found) {
+            console.error('google-services.json does not contain com.fidelx.vendor');
+            process.exit(1);
+          }
+          console.log('Vendor Firebase registration verified.');
+          NODE
 
-      - name: Build vendor web app
+      - name: Install vendor dependencies
+        working-directory: vendor
+        run: npm install
+
+      - name: Build Fidelx vendor web app
+        working-directory: vendor
         env:
           VITE_API_URL: https://fidelx-backend.onrender.com/api
           VITE_APP_ROLE: vendor
-        working-directory: vendor
         run: npm run build
 
       - name: Add Android platform
         working-directory: vendor
         run: npx cap add android
 
-      - name: Configure Firebase for vendor app
-        shell: bash
-        run: |
-          CONFIG=''
-          if [ -f vendor/google-services.json ]; then CONFIG='vendor/google-services.json'; elif [ -f google-services.json ]; then CONFIG='google-services.json'; fi
-          if [ -z "$CONFIG" ]; then
-            echo 'ERROR: google-services.json is missing. Place it in vendor/ or at repository root.'
-            exit 1
-          fi
-          node --input-type=module <<'NODE'
-          import fs from 'node:fs';
-          const path = fs.existsSync('vendor/google-services.json') ? 'vendor/google-services.json' : 'google-services.json';
-          const cfg = JSON.parse(fs.readFileSync(path, 'utf8'));
-          const found = (cfg.client || []).some(c => c.client_info?.android_client_info?.package_name === 'com.fidelx.vendor');
-          if (!found) {
-            console.error('ERROR: google-services.json has no Android client for com.fidelx.vendor');
-            process.exit(1);
-          }
-          NODE
-          mkdir -p vendor/android/app
-          cp "$CONFIG" vendor/android/app/google-services.json
-
-      - name: Enable Google Services Gradle plugin
-        shell: bash
-        run: |
-          python3 <<'PY'
-          from pathlib import Path
-          import re, sys
-          root = Path('vendor/android/build.gradle')
-          app = Path('vendor/android/app/build.gradle')
-          if not root.exists() or not app.exists():
-              print('ERROR: Expected generated Gradle files were not found.')
-              sys.exit(1)
-          root_text = root.read_text()
-          app_text = app.read_text()
-          if 'com.google.gms:google-services' not in root_text:
-              if 'dependencies {' not in root_text:
-                  print('ERROR: Could not find dependencies block in android/build.gradle')
-                  sys.exit(1)
-              root_text = root_text.replace('dependencies {', "dependencies {\n        classpath 'com.google.gms:google-services:4.4.2'", 1)
-              root.write_text(root_text)
-          if 'com.google.gms.google-services' not in app_text:
-              if re.search(r"apply plugin: ['\"]com\.android\.application['\"]", app_text):
-                  app_text = re.sub(r"(apply plugin: ['\"]com\.android\.application['\"])", r"\1\napply plugin: 'com.google.gms.google-services'", app_text, count=1)
-              elif re.search(r"plugins\s*\{", app_text):
-                  app_text = re.sub(r"plugins\s*\{", "plugins {\n    id 'com.google.gms.google-services'", app_text, count=1)
-              else:
-                  print('ERROR: Could not safely add Google Services plugin to app/build.gradle')
-                  sys.exit(1)
-              app.write_text(app_text)
-          print('Google Services Gradle plugin configured.')
-          PY
-
-      - name: Sync Capacitor Android project
+      - name: Sync Capacitor
         working-directory: vendor
         run: npx cap sync android
 
-      - name: Verify Android application ID
+      - name: Configure Firebase and vendor Android identity
+        working-directory: vendor
+        shell: bash
         run: |
-          if ! grep -R -q "com.fidelx.vendor" vendor/android/app/build.gradle vendor/android/app/build.gradle.kts 2>/dev/null; then
-            echo 'ERROR: Android application ID com.fidelx.vendor was not found in the generated app Gradle file.'
-            exit 1
-          fi
+          set -euo pipefail
+          test -f google-services.json
+          cp google-services.json android/app/google-services.json
+          python3 - <<'PY'
+          from pathlib import Path
+          root = Path('android/build.gradle')
+          app = Path('android/app/build.gradle')
+          if not root.exists() or not app.exists():
+              raise SystemExit('Generated Android Gradle files were not found')
+          s = root.read_text()
+          plugin = "classpath 'com.google.gms:google-services:4.4.2'"
+          if 'com.google.gms:google-services' not in s:
+              if 'dependencies {' not in s:
+                  raise SystemExit('Root Gradle dependencies block not found')
+              s = s.replace('dependencies {', 'dependencies {\n        ' + plugin, 1)
+              root.write_text(s)
+          s = app.read_text()
+          if 'com.google.gms.google-services' not in s:
+              s += '\n\napply plugin: "com.google.gms.google-services"\n'
+              app.write_text(s)
+          manifest = Path('android/app/src/main/AndroidManifest.xml')
+          s = manifest.read_text()
+          if 'package="com.fidelx.vendor"' not in s:
+              # Capacitor uses appId from capacitor.config; set namespace/applicationId in Gradle instead.
+              pass
+          for perm in ['android.permission.POST_NOTIFICATIONS']:
+              line = f'<uses-permission android:name="{perm}" />'
+              if line not in s:
+                  s = s.replace('<application', f'    {line}\n    <application', 1)
+          manifest.write_text(s)
+          gradle = app.read_text()
+          if 'applicationId "com.fidelx.vendor"' not in gradle and "applicationId 'com.fidelx.vendor'" not in gradle:
+              import re
+              gradle, n = re.subn(r'applicationId\s+["\'][^"\']+["\']', 'applicationId "com.fidelx.vendor"', gradle, count=1)
+              if n == 0:
+                  raise SystemExit('Could not locate applicationId in generated app/build.gradle')
+              app.write_text(gradle)
+          print('Firebase Gradle plugin and vendor package configured.')
+          PY
 
-      - name: Build debug APK
+      - name: Build vendor debug APK
         working-directory: vendor/android
         run: ./gradlew assembleDebug --no-daemon
 
@@ -131,4 +121,4 @@ jobs:
           name: fidelx-vendor-debug-apk
           path: vendor/android/app/build/outputs/apk/debug/app-debug.apk
           if-no-files-found: error
-          retention-days: 14
+          retention-days: 7

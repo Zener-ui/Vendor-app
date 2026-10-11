@@ -10,8 +10,7 @@
     "lint": "eslint . --ext js,jsx --report-unused-disable-directives --max-warnings 0",
     "cap:sync": "npm run build && npx cap sync android",
     "cap:open": "npx cap open android",
-    "cap:run": "npm run build && npx cap sync android && npx cap run android",
-    "android:prepare": "bash scripts/prepare-android.sh"
+    "cap:run": "npm run build && npx cap sync android && npx cap run android"
   },
   "dependencies": {
     "@tanstack/react-query": "^5.28.0",
