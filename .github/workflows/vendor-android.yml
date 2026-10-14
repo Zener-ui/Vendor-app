@@ -79,7 +79,11 @@ jobs:
           set -euo pipefail
           test -f public/pwa-512x512.png
           cp -R android-icons/. android/app/src/main/res/
-          echo "Fidelx vendor launcher icons installed."
+          test -f android/app/src/main/res/mipmap-xxxhdpi/ic_launcher.png
+          test -f android/app/src/main/res/mipmap-xxxhdpi/ic_launcher_foreground.png
+          test -f android/app/src/main/res/mipmap-anydpi-v26/ic_launcher.xml
+          grep -q '@mipmap/ic_launcher_foreground' android/app/src/main/res/mipmap-anydpi-v26/ic_launcher.xml
+          echo "Fidelx vendor launcher assets installed and adaptive foreground reference verified."
 
       - name: Configure Firebase and vendor Android identity
         working-directory: vendor
@@ -123,6 +127,37 @@ jobs:
                   raise SystemExit('Could not locate applicationId in generated app/build.gradle')
               app.write_text(gradle)
           print('Firebase Gradle plugin and vendor package configured.')
+          PY
+
+      - name: Verify branded vendor launcher is selected in manifest
+        working-directory: vendor
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          import re
+          manifest = Path('android/app/src/main/AndroidManifest.xml')
+          text = manifest.read_text()
+          match = re.search(r'<application\b[^>]*>', text, re.S)
+          if not match:
+              raise SystemExit('Android manifest has no application element')
+          tag = match.group(0)
+          if re.search(r'\bandroid:icon=', tag):
+              tag = re.sub(r'android:icon="[^"]*"', 'android:icon="@mipmap/ic_launcher"', tag)
+          else:
+              tag = tag[:-1] + ' android:icon="@mipmap/ic_launcher">'
+          if re.search(r'\bandroid:roundIcon=', tag):
+              tag = re.sub(r'android:roundIcon="[^"]*"', 'android:roundIcon="@mipmap/ic_launcher_round"', tag)
+          else:
+              tag = tag[:-1] + ' android:roundIcon="@mipmap/ic_launcher_round">'
+          manifest.write_text(text[:match.start()] + tag + text[match.end():])
+          for path in [
+              'android/app/src/main/res/mipmap-xxxhdpi/ic_launcher.png',
+              'android/app/src/main/res/mipmap-xxxhdpi/ic_launcher_foreground.png',
+              'android/app/src/main/res/mipmap-anydpi-v26/ic_launcher.xml',
+          ]:
+              if not Path(path).is_file():
+                  raise SystemExit(f'Missing branded vendor launcher resource: {path}')
+          print('Vendor manifest explicitly selects Fidelx launcher resources.')
           PY
 
       - name: Build vendor debug APK
