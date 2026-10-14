@@ -70,6 +70,7 @@ const enableNativePush = async () => {
   if (!registration?.value) throw new Error("Firebase did not return a device token.");
   const saved = await registerFcmToken(registration.value);
   if (!saved?.success) throw new Error(saved?.message || "The server could not save this device for notifications.");
+  localStorage.setItem(`fidelx_fcm_token_${import.meta.env.VITE_APP_ROLE || "customer"}`, registration.value);
   return { success: true };
 };
 
@@ -111,8 +112,14 @@ export const enablePushNotifications = async () => {
 export const disablePushNotifications = async () => {
   if (isNativePush()) {
     const { PushNotifications } = await import("@capacitor/push-notifications");
-    // FCM token removal is handled by the server when the token is supplied.
-    // Capacitor's unregister also clears the native registration.
+    const role = import.meta.env.VITE_APP_ROLE || "customer";
+    const tokenKey = `fidelx_fcm_token_${role}`;
+    const token = localStorage.getItem(tokenKey);
+    if (token) {
+      const result = await unregisterFcmToken(token);
+      if (!result?.success) throw new Error(result?.message || "The server could not remove this device from push notifications.");
+      localStorage.removeItem(tokenKey);
+    }
     await PushNotifications.unregister();
     return;
   }
@@ -131,4 +138,19 @@ export const getPushPermissionState = async () => {
   }
   if (!("Notification" in window)) return "unsupported";
   return Notification.permission;
+};
+
+
+export const getPushEnabledState = async () => {
+  if (isNativePush()) {
+    const role = import.meta.env.VITE_APP_ROLE || "customer";
+    const token = localStorage.getItem(`fidelx_fcm_token_${role}`);
+    const permission = await getPushPermissionState();
+    return Boolean(token) && permission === "granted";
+  }
+  if (!("serviceWorker" in navigator && "PushManager" in window)) return false;
+  try {
+    const registration = await navigator.serviceWorker.getRegistration("/");
+    return Boolean(await registration?.pushManager?.getSubscription());
+  } catch { return false; }
 };

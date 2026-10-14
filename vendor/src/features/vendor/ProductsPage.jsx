@@ -61,7 +61,7 @@ export default function VendorProductsPage() {
   };
 
   const copyProductLink = async (productId) => {
-    const link = `${window.location.origin}/p/${productId}`;
+    const link = `${https://fidelx.com.ng}/p/${productId}`;
     try {
       await navigator.clipboard.writeText(link);
       toast.success("Product link copied!");

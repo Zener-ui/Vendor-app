@@ -11,7 +11,7 @@ export default function ReferFriendsPage() {
   const { user } = useAuthStore();
   const { data, isLoading } = useQuery({ queryKey: ["my-referral-stats"], queryFn: getMyReferralStats });
 
-  const referralLink = user?.id ? `${window.location.origin}/register?ref=${user.id}` : "";
+  const referralLink = user?.id ? `${https://fidelx.com.ng}/register?ref=${user.id}` : "";
 
   const handleShare = async () => {
     const shareText = "Come shop on Fidelx with me — fast local delivery, real vendors near you. Sign up with my link:";

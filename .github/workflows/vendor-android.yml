@@ -110,7 +110,7 @@ jobs:
           if 'package="com.fidelx.vendor"' not in s:
               # Capacitor uses appId from capacitor.config; set namespace/applicationId in Gradle instead.
               pass
-          for perm in ['android.permission.POST_NOTIFICATIONS']:
+          for perm in ['android.permission.POST_NOTIFICATIONS', 'android.permission.ACCESS_COARSE_LOCATION', 'android.permission.ACCESS_FINE_LOCATION', 'android.permission.RECORD_AUDIO', 'android.permission.MODIFY_AUDIO_SETTINGS']:
               line = f'<uses-permission android:name="{perm}" />'
               if line not in s:
                   s = s.replace('<application', f'    {line}\n    <application', 1)

@@ -12,6 +12,7 @@ import Button from "@/components/common/Button";
 import Input from "@/components/common/Input";
 import GpsLocationCapture from "@/components/common/GpsLocationCapture";
 import ChangePinSection from "@/components/common/ChangePinSection";
+import PushDeviceSettings from "@/components/common/PushDeviceSettings";
 import OpeningHoursCard from "./OpeningHoursCard";
 import { Skeleton } from "@/components/common/Loader";
 
@@ -119,6 +120,8 @@ export default function VendorSettingsPage() {
         )}
 
         {!isLoading && data?.vendor && <OpeningHoursCard vendor={data.vendor} />}
+        <PushDeviceSettings />
+        <PushDeviceSettings />
         <ChangePinSection />
 
         <Link to="/terms" className="block rounded-full border-2 border-ink bg-white px-4 py-3 text-center text-sm font-extrabold text-ink shadow-pop-xs">
