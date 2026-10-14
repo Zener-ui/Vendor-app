@@ -71,7 +71,7 @@ export default function VendorDashboard() {
   // Uses navigator.share on devices that support it (native share
   // sheet straight to WhatsApp/etc.), falls back to copy-to-clipboard
   // everywhere else.
-  const storeLink = vendor?.id ? `${https://fidelx.com.ng}/s/${vendor.id}` : "";
+  const storeLink = vendor?.id ? `${window.location.origin}/s/${vendor.id}` : "";
   const handleShareStore = async () => {
     if (!storeLink) return;
     if (navigator.share) {
