@@ -98,7 +98,7 @@ export default function AppRoutes() {
       {/* Auth */}
       <Route element={<AuthLayout />}>
         <Route path="/login" element={<PublicRoute><Wrap><LoginPage /></Wrap></PublicRoute>} />
-        <Route path="/register" element={(Capacitor.isNativePlatform() && (import.meta.env.VITE_APP_ROLE || "customer") !== "customer") ? <Navigate to="/login" replace /> : <PublicRoute><Wrap><RegisterPage /></Wrap></PublicRoute>} />
+        <Route path="/register" element={<PublicRoute><Wrap><RegisterPage /></Wrap></PublicRoute>} />
         <Route path="/forgot-password" element={<Wrap><ForgotPasswordPage /></Wrap>} />
         <Route path="/reset-password" element={<Wrap><ResetPasswordPage /></Wrap>} />
         <Route path="/change-password" element={<ProtectedRoute><Wrap><ChangePasswordPage /></Wrap></ProtectedRoute>} />

@@ -72,6 +72,15 @@ jobs:
         working-directory: vendor
         run: npx cap sync android
 
+      - name: Apply Fidelx vendor launcher icons
+        working-directory: vendor
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -f public/pwa-512x512.png
+          cp -R android-icons/. android/app/src/main/res/
+          echo "Fidelx vendor launcher icons installed."
+
       - name: Configure Firebase and vendor Android identity
         working-directory: vendor
         shell: bash

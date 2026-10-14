@@ -52,10 +52,25 @@ export default function RegisterPage() {
   }, [searchParams]);
   const { login: storeLogin } = useAuthStore();
 
-  const customerApp = Capacitor.isNativePlatform() && (import.meta.env.VITE_APP_ROLE || "customer") === "customer";
+  const configuredAppRole = String(import.meta.env.VITE_APP_ROLE || "").trim().toLowerCase();
+  const customerApp = Capacitor.isNativePlatform() && configuredAppRole === "customer";
+  const vendorApp = Capacitor.isNativePlatform() && configuredAppRole === "vendor";
   const requestedRole = searchParams.get("role");
-  const initialRole = customerApp ? "customer" : (requestedRole && ["customer", "vendor", "rider"].includes(requestedRole) ? requestedRole : "customer");
+  // Native apps must never default to the customer role just because the URL
+  // has no ?role= parameter. The role is fixed by the app's build identity.
+  const initialRole = customerApp
+    ? "customer"
+    : vendorApp
+      ? "vendor"
+      : (requestedRole && ["customer", "vendor", "rider"].includes(requestedRole) ? requestedRole : "customer");
   const [form, setForm] = useState({ ...BLANK_FORM, role: initialRole });
+  // Keep the native app's role locked even if a stale URL or UI state tries
+  // to change it. Web registration can still choose among supported roles.
+  const effectiveRole = customerApp ? "customer" : vendorApp ? "vendor" : form.role;
+  useEffect(() => {
+    if (form.role !== effectiveRole) setForm((current) => ({ ...current, role: effectiveRole }));
+  }, [effectiveRole, form.role]);
+  const setField = (field, value) => setForm((current) => ({ ...current, [field]: value }));
   const [errors, setErrors] = useState({});
   const [submitting, setSubmitting] = useState(false);
   const [termsAccepted, setTermsAccepted] = useState(false);
@@ -119,6 +134,16 @@ export default function RegisterPage() {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    if (vendorApp && form.role !== "vendor") {
+      setForm((current) => ({ ...current, role: "vendor" }));
+      toast.error("This is the Fidelx Vendor app. Please register a vendor account.");
+      return;
+    }
+    if (customerApp && form.role !== "customer") {
+      setForm((current) => ({ ...current, role: "customer" }));
+      toast.error("This is the Fidelx Customer app. Please register a customer account.");
+      return;
+    }
     if (!validate()) return;
 
     setSubmitting(true);
@@ -128,7 +153,7 @@ export default function RegisterPage() {
         email: form.email,
         phone: form.phone,
         password: form.password,
-        role: form.role,
+        role: effectiveRole,
         terms_accepted: termsAccepted,
       };
       if (needsInvite) basePayload.invite_code = form.invite_code;
@@ -146,8 +171,9 @@ export default function RegisterPage() {
       // Step 1: create the account (same for every role)
       basePayload.persistent_session = Capacitor.isNativePlatform();
       const accountData = await registerMutation.mutateAsync(basePayload);
-      if (customerApp && !["customer", "vendor", "rider"].includes(accountData.user?.role)) {
-        throw new Error("Invalid account role.");
+      const expectedNativeRole = customerApp ? "customer" : vendorApp ? "vendor" : null;
+      if (expectedNativeRole && String(accountData.user?.role || "").toLowerCase() !== expectedNativeRole) {
+        throw new Error(`This app can only create ${expectedNativeRole} accounts. Please use the correct Fidelx app.`);
       }
       storeLogin(accountData.token, accountData.user); // writes the token so step 2 is authenticated
 
@@ -155,7 +181,7 @@ export default function RegisterPage() {
       // Both of these are the exact same endpoints the dedicated
       // vendor/rider onboarding pages already use — nothing new here,
       // just called immediately instead of on a separate later visit.
-      if (form.role === "vendor") {
+      if (effectiveRole === "vendor") {
         try {
           await registerVendor({
             business_name: form.business_name,
@@ -176,7 +202,7 @@ export default function RegisterPage() {
         }
       }
 
-      if (form.role === "rider") {
+      if (effectiveRole === "rider") {
         try {
           const riderResult = await registerRider({
             nin: form.nin,
@@ -209,7 +235,7 @@ export default function RegisterPage() {
       clearReferredVendor();
       clearReferredCustomer();
       const from = location.state?.from?.pathname;
-      navigate(from || roleHomePath(form.role), { replace: true });
+      navigate(from || roleHomePath(effectiveRole), { replace: true });
     } catch (err) {
       // Base account creation itself failed — already toasted by registerMutation.onError
     } finally {
@@ -225,12 +251,13 @@ export default function RegisterPage() {
       <p className="mb-6 mt-2 font-medium text-slate-muted">Join Fidelx today</p>
 
       <form onSubmit={handleSubmit} className="space-y-5">
-        {/* Customer Android app is strictly customer-only. Vendor/rider
-            registration remains available in their dedicated apps/web flow. */}
-        {customerApp ? (
+        {/* Dedicated native apps lock registration to their build role. */}
+        {customerApp || vendorApp ? (
           <div className="rounded-[22px] border-[2.5px] border-ink bg-white p-4 shadow-pop-xs">
-            <p className="text-sm font-extrabold text-ink">Creating a customer account</p>
-            <p className="mt-1 text-xs font-semibold text-slate-muted">Shop from local businesses with Fidelx.</p>
+            <p className="text-sm font-extrabold text-ink">{vendorApp ? "Creating a vendor account" : "Creating a customer account"}</p>
+            <p className="mt-1 text-xs font-semibold text-slate-muted">
+              {vendorApp ? "Register your business to start selling with Fidelx." : "Shop from local businesses with Fidelx."}
+            </p>
           </div>
         ) : (
           <div>
