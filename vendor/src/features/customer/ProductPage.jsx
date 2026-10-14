@@ -122,7 +122,7 @@ export default function ProductPage() {
   // current viewer is on — whoever they share this with won't be
   // logged in, so this is the entry point that actually works for
   // them (browse + add to cart with no account, sign up at checkout).
-  const shareLink = `${https://fidelx.com.ng}/p/${id}`;
+  const shareLink = `https://fidelx.com.ng/p/${encodeURIComponent(id)}`;
   const handleShare = async () => {
     const shareData = {
       title: product.name,
