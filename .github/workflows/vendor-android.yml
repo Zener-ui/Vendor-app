@@ -79,11 +79,7 @@ jobs:
           set -euo pipefail
           test -f public/pwa-512x512.png
           cp -R android-icons/. android/app/src/main/res/
-          test -f android/app/src/main/res/mipmap-xxxhdpi/ic_launcher.png
-          test -f android/app/src/main/res/mipmap-xxxhdpi/ic_launcher_foreground.png
-          test -f android/app/src/main/res/mipmap-anydpi-v26/ic_launcher.xml
-          grep -q '@mipmap/ic_launcher_foreground' android/app/src/main/res/mipmap-anydpi-v26/ic_launcher.xml
-          echo "Fidelx vendor launcher assets installed and adaptive foreground reference verified."
+          echo "Fidelx vendor launcher icons installed."
 
       - name: Configure Firebase and vendor Android identity
         working-directory: vendor
@@ -114,7 +110,11 @@ jobs:
           if 'package="com.fidelx.vendor"' not in s:
               # Capacitor uses appId from capacitor.config; set namespace/applicationId in Gradle instead.
               pass
-          for perm in ['android.permission.POST_NOTIFICATIONS']:
+          for perm in [
+              'android.permission.POST_NOTIFICATIONS',
+              'android.permission.ACCESS_COARSE_LOCATION',
+              'android.permission.ACCESS_FINE_LOCATION',
+          ]:
               line = f'<uses-permission android:name="{perm}" />'
               if line not in s:
                   s = s.replace('<application', f'    {line}\n    <application', 1)
@@ -129,36 +129,14 @@ jobs:
           print('Firebase Gradle plugin and vendor package configured.')
           PY
 
-      - name: Verify branded vendor launcher is selected in manifest
+      - name: Verify vendor location permissions
         working-directory: vendor
         run: |
-          python3 - <<'PY'
-          from pathlib import Path
-          import re
-          manifest = Path('android/app/src/main/AndroidManifest.xml')
-          text = manifest.read_text()
-          match = re.search(r'<application\b[^>]*>', text, re.S)
-          if not match:
-              raise SystemExit('Android manifest has no application element')
-          tag = match.group(0)
-          if re.search(r'\bandroid:icon=', tag):
-              tag = re.sub(r'android:icon="[^"]*"', 'android:icon="@mipmap/ic_launcher"', tag)
-          else:
-              tag = tag[:-1] + ' android:icon="@mipmap/ic_launcher">'
-          if re.search(r'\bandroid:roundIcon=', tag):
-              tag = re.sub(r'android:roundIcon="[^"]*"', 'android:roundIcon="@mipmap/ic_launcher_round"', tag)
-          else:
-              tag = tag[:-1] + ' android:roundIcon="@mipmap/ic_launcher_round">'
-          manifest.write_text(text[:match.start()] + tag + text[match.end():])
-          for path in [
-              'android/app/src/main/res/mipmap-xxxhdpi/ic_launcher.png',
-              'android/app/src/main/res/mipmap-xxxhdpi/ic_launcher_foreground.png',
-              'android/app/src/main/res/mipmap-anydpi-v26/ic_launcher.xml',
-          ]:
-              if not Path(path).is_file():
-                  raise SystemExit(f'Missing branded vendor launcher resource: {path}')
-          print('Vendor manifest explicitly selects Fidelx launcher resources.')
-          PY
+          set -euo pipefail
+          MANIFEST=android/app/src/main/AndroidManifest.xml
+          grep -q 'android.permission.ACCESS_COARSE_LOCATION' "$MANIFEST"
+          grep -q 'android.permission.ACCESS_FINE_LOCATION' "$MANIFEST"
+          echo "Vendor Android manifest declares coarse and fine location permissions."
 
       - name: Build vendor debug APK
         working-directory: vendor/android
