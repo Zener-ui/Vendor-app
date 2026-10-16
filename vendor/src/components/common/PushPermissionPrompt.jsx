@@ -1,12 +1,16 @@
 import { useEffect, useState } from "react";
 import toast from "react-hot-toast";
 import { Bell, X } from "lucide-react";
-import { enablePushNotifications, isPushSupported, getPushPermissionState } from "@/utils/push";
+import { Capacitor } from "@capacitor/core";
+import { enablePushNotifications, isPushSupported, getPushPermissionState, hasAutoAskedPush } from "@/utils/push";
 
 const flagKey = (userId) => `cm_push_prompt_seen_${userId}`;
 
 export const hasSeenPushPrompt = (userId) => {
   if (!userId) return true;
+  // Native apps register automatically after login; the card is only a
+  // recovery banner and must keep reappearing while notifications are off.
+  if (Capacitor.isNativePlatform()) return false;
   return localStorage.getItem(flagKey(userId)) === "seen";
 };
 
@@ -25,7 +29,9 @@ export default function PushPermissionPrompt({ userId, onDone }) {
   }, []);
 
   const dismiss = () => {
-    if (userId) localStorage.setItem(flagKey(userId), "seen");
+    // Native: dismiss for this session only, so a rider/vendor with
+    // notifications off is reminded again next launch.
+    if (userId && !Capacitor.isNativePlatform()) localStorage.setItem(flagKey(userId), "seen");
     onDone();
   };
 
@@ -54,7 +60,13 @@ export default function PushPermissionPrompt({ userId, onDone }) {
     }
   };
 
-  if (!isPushSupported() || permissionState !== "prompt" && permissionState !== "default") return null;
+  const native = Capacitor.isNativePlatform();
+  const isDenied = native && permissionState === "denied";
+  // Native: wait until the automatic system dialog has been shown once, so the
+  // two never appear together.
+  if (native && !hasAutoAskedPush(userId)) return null;
+  if (!isPushSupported()) return null;
+  if (!isDenied && permissionState !== "prompt" && permissionState !== "prompt-with-rationale" && permissionState !== "default") return null;
 
   return (
     <div className="fixed bottom-20 md:bottom-4 left-4 right-4 md:left-auto md:right-4 md:w-80 z-50 bg-surface border border-surface-border rounded-2xl p-4 shadow-lg">
@@ -63,16 +75,22 @@ export default function PushPermissionPrompt({ userId, onDone }) {
           <Bell className="w-[18px] h-[18px] text-teal" strokeWidth={2} />
         </div>
         <div className="flex-1 min-w-0">
-          <p className="text-ink text-sm font-semibold">Stay in the loop</p>
-          <p className="text-slate-muted text-xs mt-0.5">Get notified instantly about order updates, deliveries, and account activity.</p>
+          <p className="text-ink text-sm font-semibold">{isDenied ? "Notifications are turned off" : "Stay in the loop"}</p>
+          <p className="text-slate-muted text-xs mt-0.5">
+            {isDenied
+              ? "You won't be alerted about new orders or deliveries. Open your phone's Settings → Apps → Fidelx → Notifications and switch them on."
+              : "Get notified instantly about order updates, deliveries, and account activity."}
+          </p>
           <div className="flex gap-2 mt-3">
-            <button
-              onClick={handleEnable}
-              disabled={loading}
-              className="text-xs font-semibold bg-teal text-navy px-3 py-1.5 rounded-lg disabled:opacity-60"
-            >
-              {loading ? "Enabling…" : "Enable notifications"}
-            </button>
+            {!isDenied && (
+              <button
+                onClick={handleEnable}
+                disabled={loading}
+                className="text-xs font-semibold bg-teal text-navy px-3 py-1.5 rounded-lg disabled:opacity-60"
+              >
+                {loading ? "Enabling…" : "Enable notifications"}
+              </button>
+            )}
             <button onClick={dismiss} className="text-xs font-medium text-slate-muted px-3 py-1.5">
               Not now
             </button>

@@ -17,7 +17,9 @@ const enableNativePush = async () => {
   const { PushNotifications } = await import("@capacitor/push-notifications");
 
   let permStatus = await PushNotifications.checkPermissions();
-  if (permStatus.receive === "prompt") {
+  // Android 13+ reports "prompt-with-rationale" after a first dismissal; it is
+  // still askable, so it must be treated like "prompt".
+  if (permStatus.receive === "prompt" || permStatus.receive === "prompt-with-rationale") {
     permStatus = await PushNotifications.requestPermissions();
   }
   if (permStatus.receive !== "granted") return { success: false, reason: "denied" };
@@ -70,8 +72,29 @@ const enableNativePush = async () => {
   if (!registration?.value) throw new Error("Firebase did not return a device token.");
   const saved = await registerFcmToken(registration.value);
   if (!saved?.success) throw new Error(saved?.message || "The server could not save this device for notifications.");
+  // Keep the current native token so the authenticated unregister endpoint
+  // can remove the server-side association before Capacitor unregisters.
   localStorage.setItem(`fidelx_fcm_token_${import.meta.env.VITE_APP_ROLE || "customer"}`, registration.value);
   return { success: true };
+};
+
+const autoAskedKey = (userId) => `fidelx_push_auto_asked_${userId}`;
+export const hasAutoAskedPush = (userId) => !!userId && localStorage.getItem(autoAskedKey(userId)) === "1";
+
+// Called automatically after login in the native apps. Devices that already
+// granted permission re-register silently on every launch (FCM tokens rotate).
+// Otherwise the system permission dialog is shown once per account; after
+// that the in-app banner (PushPermissionPrompt) is the way to recover.
+export const autoRegisterNativePush = async (userId) => {
+  if (!isNativePush() || !userId) return { success: false, reason: "unsupported" };
+  const { PushNotifications } = await import("@capacitor/push-notifications");
+  const status = await PushNotifications.checkPermissions();
+  if (status.receive === "denied") return { success: false, reason: "denied" };
+  if (status.receive !== "granted") {
+    if (hasAutoAskedPush(userId)) return { success: false, reason: "not-granted" };
+    localStorage.setItem(autoAskedKey(userId), "1");
+  }
+  return enableNativePush();
 };
 
 // Requests permission and enables push for either the native Capacitor app
@@ -115,9 +138,14 @@ export const disablePushNotifications = async () => {
     const role = import.meta.env.VITE_APP_ROLE || "customer";
     const tokenKey = `fidelx_fcm_token_${role}`;
     const token = localStorage.getItem(tokenKey);
+    // Remove the authenticated server-side token association first. If this
+    // fails, preserve native registration and the stored token so the user
+    // can retry instead of silently leaving a stale token on the server.
     if (token) {
       const result = await unregisterFcmToken(token);
-      if (!result?.success) throw new Error(result?.message || "The server could not remove this device from push notifications.");
+      if (!result?.success) {
+        throw new Error(result?.message || "The server could not remove this device from push notifications.");
+      }
       localStorage.removeItem(tokenKey);
     }
     await PushNotifications.unregister();
@@ -138,19 +166,4 @@ export const getPushPermissionState = async () => {
   }
   if (!("Notification" in window)) return "unsupported";
   return Notification.permission;
-};
-
-
-export const getPushEnabledState = async () => {
-  if (isNativePush()) {
-    const role = import.meta.env.VITE_APP_ROLE || "customer";
-    const token = localStorage.getItem(`fidelx_fcm_token_${role}`);
-    const permission = await getPushPermissionState();
-    return Boolean(token) && permission === "granted";
-  }
-  if (!("serviceWorker" in navigator && "PushManager" in window)) return false;
-  try {
-    const registration = await navigator.serviceWorker.getRegistration("/");
-    return Boolean(await registration?.pushManager?.getSubscription());
-  } catch { return false; }
 };

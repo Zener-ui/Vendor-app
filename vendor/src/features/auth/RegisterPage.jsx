@@ -247,8 +247,8 @@ export default function RegisterPage() {
     <div className="animate-fade-in">
       <AuthTabs active="register" />
 
-      <h2 className="font-display text-[1.75rem] font-extrabold leading-none tracking-tight text-ink">{vendorApp ? "Grow your business with Fidelx" : "Create your account"}</h2>
-      <p className="mb-6 mt-2 font-medium text-slate-muted">{vendorApp ? "Bring your products to more local customers and grow your sales with Fidelx." : "Join Fidelx today"}</p>
+      <h2 className="font-display text-[1.75rem] font-extrabold leading-none tracking-tight text-ink">Create your account</h2>
+      <p className="mb-6 mt-2 font-medium text-slate-muted">Join Fidelx today</p>
 
       <form onSubmit={handleSubmit} className="space-y-5">
         {/* Dedicated native apps lock registration to their build role. */}

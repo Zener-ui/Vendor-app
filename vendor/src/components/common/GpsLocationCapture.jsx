@@ -78,35 +78,9 @@ export default function GpsLocationCapture({
   };
 
   const startRecording = async () => {
-    let stream = null;
     try {
-      // getUserMedia is available only in a secure context and some Android
-      // WebViews may not expose it even when the app-level permission is on.
-      if (!window.isSecureContext) {
-        toast.error("Microphone needs a secure app connection. Please update/reopen Fidelx and try again.");
-        return;
-      }
-      if (!navigator.mediaDevices || typeof navigator.mediaDevices.getUserMedia !== "function") {
-        toast.error("This app version cannot start microphone recording. Please update Fidelx to the latest version.");
-        return;
-      }
-      if (typeof window.MediaRecorder !== "function") {
-        toast.error("Audio recording is not supported by this app version. Please update Fidelx.");
-        return;
-      }
-
-      stream = await navigator.mediaDevices.getUserMedia({ audio: { echoCancellation: true, noiseSuppression: true } });
-      // The upload endpoint accepts WebM only. Do not select MP4/OGG here:
-      // those formats would record locally but then be rejected by the backend.
-      const mimeType = ["audio/webm;codecs=opus", "audio/webm"]
-        .find((type) => typeof window.MediaRecorder.isTypeSupported === "function" && window.MediaRecorder.isTypeSupported(type));
-      if (!mimeType) {
-        stream.getTracks().forEach((track) => track.stop());
-        stream = null;
-        toast.error("This Android WebView cannot record the audio format Fidelx accepts. Please update Fidelx.");
-        return;
-      }
-      const recorder = new MediaRecorder(stream, { mimeType });
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      const recorder = new MediaRecorder(stream);
       chunksRef.current = [];
 
       recorder.ondataavailable = (e) => {
@@ -119,12 +93,8 @@ export default function GpsLocationCapture({
         clearTimeout(autoStopRef.current);
         setRecording(false);
 
-        const actualType = recorder.mimeType || chunksRef.current.find((chunk) => chunk.type)?.type || "audio/webm";
-        const blob = new Blob(chunksRef.current, { type: actualType });
-        if (blob.size === 0) {
-          toast.error("No audio was captured. Please check your microphone and try again.");
-          return;
-        }
+        const blob = new Blob(chunksRef.current, { type: "audio/webm" });
+        if (blob.size === 0) return;
 
         setPlaybackUrl(URL.createObjectURL(blob));
         setUploadingVoice(true);
@@ -147,31 +117,11 @@ export default function GpsLocationCapture({
       recordTimerRef.current = setInterval(() => setRecordSeconds((s) => s + 1), 1000);
       autoStopRef.current = setTimeout(() => recorder.stop(), MAX_RECORDING_MS);
     } catch (err) {
-      // Avoid telling users to change permissions for unrelated failures.
-      if (stream) stream.getTracks().forEach((track) => track.stop());
-      const name = err?.name || "";
-      if (name === "NotAllowedError" || name === "PermissionDeniedError") {
-        toast.error("Android or the app's WebView denied microphone access. Since Microphone is already allowed in Settings, close Fidelx completely and reopen it. If this persists, the installed APK needs the native WebView permission fix.");
-      } else if (name === "SecurityError") {
-        console.error("Fidelx WebView security blocked microphone access:", err);
-        toast.error("Android WebView blocked microphone access even though app permission may be enabled. The installed APK needs the native WebView permission fix.");
-      } else if (name === "NotFoundError" || name === "DevicesNotFoundError") {
-        toast.error("No microphone was found. Disconnect any audio accessory and try again.");
-      } else if (name === "NotReadableError" || name === "TrackStartError") {
-        toast.error("The microphone is busy or unavailable. Close other apps using it and try again.");
-      } else if (name === "OverconstrainedError") {
-        toast.error("The microphone could not start with the requested settings. Please try again.");
-      } else {
-        console.error("Fidelx voice-note recording failed:", err);
-        toast.error("Recording could not start. Please close and reopen Fidelx, then try again.");
-      }
+      toast.error("Couldn't access microphone — check your permissions");
     }
   };
 
-  const stopRecording = () => {
-    const recorder = mediaRecorderRef.current;
-    if (recorder && recorder.state !== "inactive") recorder.stop();
-  };
+  const stopRecording = () => mediaRecorderRef.current?.stop();
 
   const reRecord = () => {
     setPlaybackUrl(null);

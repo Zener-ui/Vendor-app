@@ -27,8 +27,8 @@ export default function AuthLayout() {
           </div>
 
           <h1 className="relative mt-5 font-display text-[2.2rem] font-extrabold leading-[0.95] tracking-[-0.045em] text-ink">
-            <span className="block">Grow your business</span>
-            <span className="block">with Fidelx.</span>
+            <span className="block">Shop local.</span>
+            <span className="block">Delivered fast.</span>
           </h1>
         </header>
 
