@@ -86,6 +86,25 @@ jobs:
           grep -q '@mipmap/ic_launcher_foreground' "$res"/mipmap-anydpi-v26/ic_launcher.xml
           test -f "$res"/mipmap-xxxhdpi/ic_launcher_foreground.png
           grep -q 'FF6200' "$res"/values/ic_launcher_background.xml
+          # Replace the template splash (the blank/Capacitor-logo screen shown while the app loads)
+          find "$res" -name 'splash.png' -delete
+          cp -R android-splash/. "$res"/
+          test -f "$res"/drawable/splash.xml
+          STYLES="$res/values/styles.xml"
+          python3 - "$STYLES" <<'PYSTYLE'
+          import re, sys
+          from pathlib import Path
+          p = Path(sys.argv[1])
+          if p.exists():
+              s = p.read_text()
+              m = re.search(r'<style name="AppTheme\.NoActionBarLaunch"[^>]*parent="Theme\.SplashScreen"[^>]*>', s)
+              if m and 'windowSplashScreenBackground' not in s:
+                  s = s.replace(m.group(0), m.group(0) + '\n        <item name="windowSplashScreenBackground">@color/fidelx_splash_bg</item>', 1)
+                  p.write_text(s)
+                  print("Android 12+ splash background set.")
+              else:
+                  print("Android 12+ splash style left unchanged.")
+          PYSTYLE
           echo "Fidelx vendor launcher icons installed."
 
       - name: Configure Firebase and vendor Android identity

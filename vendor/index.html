@@ -5,7 +5,7 @@
     <link rel="icon" type="image/x-icon" href="/favicon.ico" />
     <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
-    <meta name="theme-color" content="#DF500C" />
+    <meta name="theme-color" content="#FF6200" />
     <meta name="description" content="Fidelx — Shop local, delivered fast" />
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
@@ -15,28 +15,26 @@
     <link href="https://api.mapbox.com/mapbox-gl-js/v3.2.0/mapbox-gl.css" rel="stylesheet" />
     <title>Fidelx</title>
     <style>
-      #initial-preloader { position: fixed; inset: 0; z-index: 9999; display: flex; align-items: center; justify-content: center; background: #FBFAF6; transition: opacity 0.35s ease; }
+      html, body { background: #FF6200; }
+      #initial-preloader { position: fixed; inset: 0; z-index: 9999; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 22px; background: #FF6200; transition: opacity 0.35s ease; }
       #initial-preloader.fade-out { opacity: 0; pointer-events: none; }
-      #initial-preloader .mark { display: flex; align-items: center; gap: 10px; animation: cm-pulse 1.4s ease-in-out infinite; }
-      #initial-preloader .dot { width: 34px; height: 34px; border-radius: 10px; background: #DF500C; display: flex; align-items: center; justify-content: center; }
-      #initial-preloader .dot svg { width: 20px; height: 20px; }
-      #initial-preloader .wordmark { font-family: "Geist", sans-serif; font-weight: 700; font-size: 22px; color: #221811; letter-spacing: -0.02em; }
-      @keyframes cm-pulse { 0%, 100% { opacity: 1; transform: scale(1); } 50% { opacity: 0.6; transform: scale(0.96); } }
+      #initial-preloader .tile { width: 112px; height: 112px; border-radius: 26px; border: 3.5px solid #2F170B; box-shadow: 5px 5px 0 #2F170B; background: #FF6200 url(/apple-touch-icon.png) center / cover no-repeat; animation: fx-bob 1.3s ease-in-out infinite; }
+      #initial-preloader .wordmark { font-family: "Bricolage Grotesque", "Trebuchet MS", system-ui, sans-serif; font-weight: 800; font-size: 30px; letter-spacing: -0.04em; color: #2F170B; line-height: 1; display: flex; align-items: center; gap: 10px; }
+      #initial-preloader .tag { font-family: system-ui, sans-serif; font-size: 11px; font-weight: 800; letter-spacing: 0.08em; text-transform: uppercase; background: #FAF0DC; border: 2.5px solid #2F170B; border-radius: 999px; padding: 4px 10px; }
+      #initial-preloader .dots { display: flex; gap: 9px; }
+      #initial-preloader .dots span { width: 12px; height: 12px; border-radius: 50%; background: #FAF0DC; border: 2.5px solid #2F170B; animation: fx-dot 0.9s ease-in-out infinite; }
+      #initial-preloader .dots span:nth-child(2) { animation-delay: 0.15s; }
+      #initial-preloader .dots span:nth-child(3) { animation-delay: 0.3s; }
+      @keyframes fx-bob { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-8px); } }
+      @keyframes fx-dot { 0%, 100% { transform: translateY(0); opacity: 0.6; } 50% { transform: translateY(-7px); opacity: 1; } }
     </style>
   </head>
   <body>
     <div id="root"></div>
     <div id="initial-preloader" aria-hidden="true">
-      <div class="mark">
-        <div class="dot">
-          <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-            <path d="M3 4h2l2.4 12.2a2 2 0 0 0 2 1.6h7.2a2 2 0 0 0 2-1.6L20 8H6" stroke="#FBFAF6" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-            <circle cx="9" cy="20" r="1.4" fill="#FBFAF6"/>
-            <circle cx="17" cy="20" r="1.4" fill="#FBFAF6"/>
-          </svg>
-        </div>
-        <div class="wordmark">Fidelx</div>
-      </div>
+      <div class="tile"></div>
+      <div class="wordmark">fidelx<span class="tag">Vendor</span></div>
+      <div class="dots"><span></span><span></span><span></span></div>
     </div>
     <script type="module" src="/src/main.jsx"></script>
   </body>

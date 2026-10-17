@@ -5,9 +5,22 @@ export default function Loader({ fullscreen = false, size = "md", text }) {
 
   if (fullscreen) {
     return (
-      <div className="fixed inset-0 bg-navy flex flex-col items-center justify-center z-50 gap-4">
-        <div className={clsx("rounded-full border-teal border-t-transparent animate-spin", sizes[size] || sizes.md)} />
-        {text && <p className="text-slate-muted text-sm">{text}</p>}
+      <div className="fixed inset-0 z-50 flex flex-col items-center justify-center gap-6 bg-brand" role="status" aria-live="polite">
+        <img
+          src="/apple-touch-icon.png"
+          alt=""
+          className="h-24 w-24 animate-pulse rounded-[22px] border-[3px] border-ink shadow-[5px_5px_0_rgb(var(--c-ink))]"
+        />
+        <div className="flex gap-2" aria-hidden="true">
+          {[0, 1, 2].map((i) => (
+            <span
+              key={i}
+              className="h-3 w-3 animate-bounce rounded-full border-[2.5px] border-ink bg-white"
+              style={{ animationDelay: `${i * 0.15}s` }}
+            />
+          ))}
+        </div>
+        {text && <p className="text-sm font-bold text-ink">{text}</p>}
       </div>
     );
   }
