@@ -2,6 +2,7 @@ import { useState, useRef, useCallback } from "react";
 import { MapPin, Mic, Check } from "lucide-react";
 import toast from "react-hot-toast";
 import { uploadVoiceNote } from "@/api/uploads";
+import { getCurrentCoords } from "@/utils/geolocation";
 
 const GPS_TIMEOUT_MS = 30000;
 const MAX_RECORDING_MS = 30000;
@@ -33,6 +34,7 @@ export default function GpsLocationCapture({
   const [status, setStatus] = useState("idle"); // idle | requesting | success | error
   const [errorType, setErrorType] = useState(null); // permission_denied | timeout | unavailable | unsupported
   const [coords, setCoords] = useState(null);
+  const [accuracy, setAccuracy] = useState(null);
   const [description, setDescription] = useState("");
 
   const [recording, setRecording] = useState(false);
@@ -46,30 +48,19 @@ export default function GpsLocationCapture({
   const recordTimerRef = useRef(null);
   const autoStopRef = useRef(null);
 
-  const requestLocation = () => {
-    if (!navigator.geolocation) {
-      setStatus("error");
-      setErrorType("unsupported");
-      return;
-    }
+  const requestLocation = async () => {
     setStatus("requesting");
     setErrorType(null);
-
-    navigator.geolocation.getCurrentPosition(
-      (pos) => {
-        const c = { lat: pos.coords.latitude, lng: pos.coords.longitude };
-        setCoords(c);
-        setStatus("success");
-        onChange?.({ lat: c.lat, lng: c.lng, description, voice_note_url: voiceNoteUrl });
-      },
-      (err) => {
-        setStatus("error");
-        if (err.code === err.PERMISSION_DENIED) setErrorType("permission_denied");
-        else if (err.code === err.TIMEOUT) setErrorType("timeout");
-        else setErrorType("unavailable");
-      },
-      { enableHighAccuracy: true, timeout: GPS_TIMEOUT_MS, maximumAge: 0 }
-    );
+    try {
+      const c = await getCurrentCoords();
+      setCoords({ lat: c.lat, lng: c.lng });
+      setAccuracy(Number.isFinite(c.accuracy) ? Math.round(c.accuracy) : null);
+      setStatus("success");
+      onChange?.({ lat: c.lat, lng: c.lng, description, voice_note_url: voiceNoteUrl });
+    } catch (err) {
+      setStatus("error");
+      setErrorType(err?.code || "unavailable");
+    }
   };
 
   const handleDescriptionChange = (val) => {
@@ -154,8 +145,14 @@ export default function GpsLocationCapture({
             <>
               <p className="text-red-400 font-semibold text-sm pop:text-ink pop:font-extrabold">Location access is turned off</p>
               <p className="text-slate-muted text-xs mt-1 pop:text-ink pop:font-semibold">
-                Please allow location access for Fidelx in your phone or browser settings, then try again.
+                Allow Location for Fidelx: open your phone Settings → Apps → Fidelx → Permissions → Location, then tap Try Again.
               </p>
+            </>
+          )}
+          {errorType === "services_off" && (
+            <>
+              <p className="text-red-400 font-semibold text-sm pop:text-ink pop:font-extrabold">Your phone's Location is switched off</p>
+              <p className="text-slate-muted text-xs mt-1 pop:text-ink pop:font-semibold">Swipe down from the top of your screen, turn on Location (GPS), then tap Try Again.</p>
             </>
           )}
           {errorType === "timeout" && (
@@ -185,7 +182,7 @@ export default function GpsLocationCapture({
           <div className="w-full py-4 rounded-2xl bg-teal/10 border border-teal/20 text-center pop:bg-lime pop:border-[2.5px] pop:border-ink pop:rounded-[20px] pop:shadow-pop-xs">
             <p className="text-teal font-semibold text-sm flex items-center gap-1 pop:justify-center pop:text-ink pop:font-extrabold"><MapPin className="w-4 h-4" /> Location has been set</p>
             <button type="button" onClick={requestLocation} className="text-slate-muted text-xs underline mt-1 pop:text-ink pop:font-bold">
-              Retry if this isn't right
+              Retry if this isn't right{accuracy ? ` (accurate to about ${accuracy} m)` : ""}
             </button>
           </div>
 
