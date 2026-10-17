@@ -78,7 +78,14 @@ jobs:
         run: |
           set -euo pipefail
           test -f public/pwa-512x512.png
-          cp -R android-icons/. android/app/src/main/res/
+          res=android/app/src/main/res
+          # Remove the Capacitor template's default (Android robot) launcher resources
+          rm -f "$res"/drawable/ic_launcher_background.xml "$res"/drawable-v24/ic_launcher_foreground.xml "$res"/mipmap-*/ic_launcher*.webp
+          cp -R android-icons/. "$res"/
+          # Fail the build if the robot icon could still win
+          grep -q '@mipmap/ic_launcher_foreground' "$res"/mipmap-anydpi-v26/ic_launcher.xml
+          test -f "$res"/mipmap-xxxhdpi/ic_launcher_foreground.png
+          grep -q 'FF6200' "$res"/values/ic_launcher_background.xml
           echo "Fidelx vendor launcher icons installed."
 
       - name: Configure Firebase and vendor Android identity
