@@ -27,25 +27,46 @@ const webPosition = (options) =>
     navigator.geolocation.getCurrentPosition(resolve, (e) => reject(fail(classify(e), e)), options);
   });
 
+const isPluginUnavailable = (e) =>
+  /not implemented|unimplemented|not available|plugin.*not/i.test(String(e?.message || e)) || e?.code === "UNIMPLEMENTED";
+
+// Returns a getPosition(options) bound to the native plugin, or null when the
+// plugin is not present in this build (then the web API is used instead of
+// wrongly reporting "permission denied").
+async function nativeGetter() {
+  let Geolocation;
+  try {
+    ({ Geolocation } = await import("@capacitor/geolocation"));
+  } catch {
+    return null;
+  }
+  const granted = (p) => p?.location === "granted" || p?.coarseLocation === "granted";
+  let perm = null;
+  try {
+    perm = await Geolocation.checkPermissions();
+  } catch (e) {
+    if (isPluginUnavailable(e)) return null;
+  }
+  if (!granted(perm)) {
+    try {
+      perm = await Geolocation.requestPermissions({ permissions: ["location", "coarseLocation"] });
+    } catch (e) {
+      if (isPluginUnavailable(e)) return null;
+      throw fail("permission_denied", e);
+    }
+  }
+  if (!granted(perm)) throw fail("permission_denied", new Error(`permission state: ${JSON.stringify(perm)}`));
+  return (options) =>
+    Geolocation.getCurrentPosition(options).catch((e) => {
+      throw fail(classify(e), e);
+    });
+}
+
 export async function getCurrentCoords() {
   let getPosition = webPosition;
-
   if (Capacitor.isNativePlatform()) {
-    const { Geolocation } = await import("@capacitor/geolocation");
-    const granted = (p) => p?.location === "granted" || p?.coarseLocation === "granted";
-    let perm = await Geolocation.checkPermissions().catch(() => null);
-    if (!granted(perm)) {
-      try {
-        perm = await Geolocation.requestPermissions({ permissions: ["location", "coarseLocation"] });
-      } catch (e) {
-        throw fail("permission_denied", e);
-      }
-    }
-    if (!granted(perm)) throw fail("permission_denied");
-    getPosition = (options) =>
-      Geolocation.getCurrentPosition(options).catch((e) => {
-        throw fail(classify(e), e);
-      });
+    const native = await nativeGetter();
+    if (native) getPosition = native;
   }
 
   let pos;

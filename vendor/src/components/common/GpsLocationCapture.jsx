@@ -32,6 +32,7 @@ export default function GpsLocationCapture({
   buttonLabel = "Set Delivery Location",
 }) {
   const [status, setStatus] = useState("idle"); // idle | requesting | success | error
+  const [errorDetail, setErrorDetail] = useState("");
   const [errorType, setErrorType] = useState(null); // permission_denied | timeout | unavailable | unsupported
   const [coords, setCoords] = useState(null);
   const [accuracy, setAccuracy] = useState(null);
@@ -51,6 +52,7 @@ export default function GpsLocationCapture({
   const requestLocation = async () => {
     setStatus("requesting");
     setErrorType(null);
+    setErrorDetail("");
     try {
       const c = await getCurrentCoords();
       setCoords({ lat: c.lat, lng: c.lng });
@@ -60,6 +62,7 @@ export default function GpsLocationCapture({
     } catch (err) {
       setStatus("error");
       setErrorType(err?.code || "unavailable");
+      setErrorDetail(String(err?.cause?.message || err?.message || "").slice(0, 160));
     }
   };
 
@@ -166,6 +169,9 @@ export default function GpsLocationCapture({
               <p className="text-red-400 font-semibold text-sm pop:text-ink pop:font-extrabold">Couldn't find your location</p>
               <p className="text-slate-muted text-xs mt-1 pop:text-ink pop:font-semibold">Stand outside and try again.</p>
             </>
+          )}
+          {errorDetail && (
+            <p className="mt-2 break-words text-[11px] font-medium opacity-60 pop:text-ink">Details: {errorType} — {errorDetail}</p>
           )}
           <button
             type="button"
