@@ -155,7 +155,7 @@ export default function GpsLocationCapture({
           {errorType === "services_off" && (
             <>
               <p className="text-red-400 font-semibold text-sm pop:text-ink pop:font-extrabold">Your phone's Location is switched off</p>
-              <p className="text-slate-muted text-xs mt-1 pop:text-ink pop:font-semibold">Swipe down from the top of your screen, turn on Location (GPS), then tap Try Again.</p>
+              <p className="text-slate-muted text-xs mt-1 pop:text-ink pop:font-semibold">This is your phone's main Location switch, not the app permission. Swipe down from the top of your screen and turn on Location (or go to Settings → Location and switch it on), then tap Try Again.</p>
             </>
           )}
           {errorType === "timeout" && (

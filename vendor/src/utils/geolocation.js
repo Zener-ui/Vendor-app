@@ -46,13 +46,16 @@ async function nativeGetter() {
     perm = await Geolocation.checkPermissions();
   } catch (e) {
     if (isPluginUnavailable(e)) return null;
+    // Android rejects this call with "Location services are not enabled" when the
+    // phone's master Location switch is off - that is NOT a permission problem.
+    if (classify(e) === "services_off") throw fail("services_off", e);
   }
   if (!granted(perm)) {
     try {
       perm = await Geolocation.requestPermissions({ permissions: ["location", "coarseLocation"] });
     } catch (e) {
       if (isPluginUnavailable(e)) return null;
-      throw fail("permission_denied", e);
+      throw fail(classify(e) === "services_off" ? "services_off" : "permission_denied", e);
     }
   }
   if (!granted(perm)) throw fail("permission_denied", new Error(`permission state: ${JSON.stringify(perm)}`));

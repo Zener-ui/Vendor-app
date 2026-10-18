@@ -13,6 +13,7 @@ import Input from "@/components/common/Input";
 import GpsLocationCapture from "@/components/common/GpsLocationCapture";
 import ChangePinSection from "@/components/common/ChangePinSection";
 import OpeningHoursCard from "./OpeningHoursCard";
+import MarketingPreferencesCard from "./MarketingPreferencesCard";
 import { Skeleton } from "@/components/common/Loader";
 
 export default function VendorSettingsPage() {
@@ -119,6 +120,7 @@ export default function VendorSettingsPage() {
         )}
 
         {!isLoading && data?.vendor && <OpeningHoursCard vendor={data.vendor} />}
+        <MarketingPreferencesCard />
         <ChangePinSection />
 
         <Link to="/terms" className="block rounded-full border-2 border-ink bg-white px-4 py-3 text-center text-sm font-extrabold text-ink shadow-pop-xs">
